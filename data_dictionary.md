@@ -1,6 +1,6 @@
 ## Data Dictionary (Finding-Level)
 
-The preprocessed dataset (`clean_findings.csv`) standardizes physical measurements and introduces derived volumetric features:
+The preprocessed dataset (`./data/processed/clean_findings.csv`) standardizes physical measurements and introduces derived volumetric features:
 
 | Column | Type | Source | Description |
 | :--- | :--- | :--- | :--- |

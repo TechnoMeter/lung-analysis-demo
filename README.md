@@ -1,7 +1,7 @@
 # lung-analysis-demo
 A Three.js and vis.js interactive medical data mockup.
 
-Obtained `annotations.csv` from the [LUNA16 Kaggle Dataset](https://www.kaggle.com/datasets/eliasmarcon/luna-16), containing 1,186 radiologist-confirmed pulmonary nodule findings across 601 thoracic CT studies.
+Obtained `./data/raw/annotations.csv` from the [LUNA16 Kaggle Dataset](https://www.kaggle.com/datasets/eliasmarcon/luna-16), containing 1,186 radiologist-confirmed pulmonary nodule findings across 601 thoracic CT studies.
 
 ---
 ```t
@@ -14,7 +14,7 @@ lung-analysis-demo/
 ├── docs/
 │   └── ui_states.png              # 4-state Excalidraw design
 ├── notebooks/
-│   └── 01_exploratory_analysis.ipynb              # EDA, PCA, and K-means clustering
+│   └── 1_exploratory_analysis.ipynb              # EDA, PCA, and K-means clustering
 ├── src/
 │   └── data/
 │       ├── inspect_data.py        # Automated quality & coordinate audit
@@ -26,7 +26,7 @@ lung-analysis-demo/
 
 ## Data Dictionary (Finding-Level)
 
-The preprocessed dataset (`clean_findings.csv`) standardizes physical measurements and introduces derived volumetric features:
+The preprocessed dataset (`./data/processed/clean_findings.csv`) standardizes physical measurements and introduces derived volumetric features:
 
 | Column | Type | Source | Description |
 | :--- | :--- | :--- | :--- |
