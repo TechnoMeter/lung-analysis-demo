@@ -3,6 +3,8 @@ A Three.js and vis.js interactive medical data mockup.
 
 Obtained `./data/raw/annotations.csv` from the [LUNA16 Kaggle Dataset](https://www.kaggle.com/datasets/eliasmarcon/luna-16), containing 1,186 radiologist-confirmed pulmonary nodule findings across 601 thoracic CT studies.
 
+We deliberately bypassed `candidates_V2.csv` (which contains over 750,000 entries). That file is 99.8% algorithmic scanner noise (false alarms like blood vessels or bone tissue) and lacks nodule diameter. Loading that many points would freeze a WebGL browser canvas. `./data/raw/annotations.csv` gives 1,186 true clinical lesions with physical dimensions, ideal for 60 FPS 3D rendering and meaningful multi-feature clustering. 
+
 ---
 ```t
 lung-analysis-demo/
@@ -30,7 +32,7 @@ The preprocessed dataset (`./data/processed/clean_findings.csv`) standardizes ph
 
 | Column | Type | Source | Description |
 | :--- | :--- | :--- | :--- |
-| `finding_id` | String | Pipeline PK | Deterministic unique finding identifier (`F-0000` to `F-1185`). |
+| `finding_id` | String | Pipeline Surrogate Key | Deterministic unique finding identifier (`F-0000` to `F-1185`). |
 | `seriesuid` | String | LUNA16 | DICOM Series Instance UID (CT scan session; 601 unique scans). |
 | `coordX` | Float | LUNA16 | Coronal/Sagittal physical position in millimeters ($X=0$ is thoracic midline). |
 | `coordY` | Float | LUNA16 | Anterior/Posterior physical position in millimeters. |
@@ -65,6 +67,29 @@ $$V = \frac{4}{3}\pi r^3 = \frac{4}{3}\pi \left(\frac{d}{2}\right)^3 = \frac{\pi
 
 ---
 
+## Exploratory Data Analysis & Feature Selection
+
+Exploratory analysis was conducted in `notebooks/1_exploratory_analysis.ipynb` to evaluate distributions, anatomical geometry, and feature correlations prior to clustering:
+
+### 1. Empirical Observations
+- **Anatomical Alignment:** The transverse (axial) projection (`coordX` vs `coordY`) reveals two distinct bilateral point clouds representing the right and left lung cavities, with an expected void at `coordX` ≈ 0 mm corresponding to the anatomical mediastinum.
+- **Scanner Couch Variance:** The coronal projection (`coordX` vs `coordZ`) confirms that while the bulk of findings align within Z in [-400, 0] mm, scanner table travel offsets span -790.07 mm to +1790.49 mm, demonstrating why coordinate standardization is mandatory.
+- **Morphological Skew:** Nodule diameter presents a median of 6.44 mm (range: 3.25 mm to 32.27 mm), while derived spherical volume expands variance cubically with a median of 139.43 mm³ and extreme masses exceeding 17,500 mm³.
+- **Spatial Independence:** Pearson correlation coefficients between spatial coordinates (X, Y, Z) and size metrics (diameter, volume) remain |r| < 0.08, proving that nodule morphology is statistically independent of spatial lung position.
+
+### 2. Locked Feature Baseline for Clustering
+Five continuous numerical features are selected for unsupervised pattern discovery:
+
+| Feature | Type | Unit | Clustering Role |
+| :--- | :--- | :--- | :--- |
+| `coordX` | Float | mm | Lateral displacement (separates left vs. right pulmonary lobes). |
+| `coordY` | Float | mm | Anterior-posterior depth (ventral vs. dorsal positioning). |
+| `coordZ` | Float | mm | Axial scanner couch travel position. |
+| `diameter_mm` | Float | mm | Linear nodule dimension (baseline clinical threshold). |
+| `volume_mm3` | Float | mm³ | Derived cubic mass indicator expanding tail-end outlier variance. |
+
+---
+
 ## Interface Design & Wireframes
 
 The 4 core interface states were designed in [Excalidraw](https://excalidraw.com) to establish spatial hierarchy, interaction flows, and camera transitions before frontend development:
@@ -79,4 +104,6 @@ The 4 core interface states were designed in [Excalidraw](https://excalidraw.com
 ---
 
 ## Clinical Boundary and Disclaimer
-This prototype is built strictly for pattern discovery and visual exploration. It does not provide medical diagnoses.
+- This prototype is built strictly for pattern discovery and visual exploration.
+- The prototype's anomaly scores only reflect mathematical distance from cluster centroids. 
+- It does not provide medical diagnoses.
