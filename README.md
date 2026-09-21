@@ -76,17 +76,18 @@ Exploratory analysis was conducted in `notebooks/1_exploratory_analysis.ipynb` t
 - **Scanner Couch Variance:** The coronal projection (`coordX` vs `coordZ`) confirms that while the bulk of findings align within Z in [-400, 0] mm, scanner table travel offsets span -790.07 mm to +1790.49 mm, demonstrating why coordinate standardization is mandatory.
 - **Morphological Skew:** Nodule diameter presents a median of 6.44 mm (range: 3.25 mm to 32.27 mm), while derived spherical volume expands variance cubically with a median of 139.43 mm³ and extreme masses exceeding 17,500 mm³.
 - **Spatial Independence:** Pearson correlation coefficients between spatial coordinates (X, Y, Z) and size metrics (diameter, volume) remain |r| < 0.08, proving that nodule morphology is statistically independent of spatial lung position.
+- **Morphological Collinearity:** Cross-feature analysis revealed an expected high correlation between diameter and volume (r = 0.893). Because volume is derived cubically from diameter, including both inside distance-based clustering algorithms would double-count nodule size.
 
-### 2. Locked Feature Baseline for Clustering
-Five continuous numerical features are selected for unsupervised pattern discovery:
+### 2. Feature Selection Strategy: Clustering vs. Presentation
+To maintain metric balance without losing clinical interpretability, the pipeline decouples the algorithmic feature vector from the database schema:
 
-| Feature | Type | Unit | Clustering Role |
+| Feature | In Clustering Matrix? | In Presentation Schema? | Justification & Role |
 | :--- | :--- | :--- | :--- |
-| `coordX` | Float | mm | Lateral displacement (separates left vs. right pulmonary lobes). |
-| `coordY` | Float | mm | Anterior-posterior depth (ventral vs. dorsal positioning). |
-| `coordZ` | Float | mm | Axial scanner couch travel position. |
-| `diameter_mm` | Float | mm | Linear nodule dimension (baseline clinical threshold). |
-| `volume_mm3` | Float | mm³ | Derived cubic mass indicator expanding tail-end outlier variance. |
+| `coordX` | Yes | Yes | Lateral physical coordinate; separates left vs. right pulmonary lobes. |
+| `coordY` | Yes | Yes | Sagittal physical coordinate; ventral vs. dorsal thoracic depth. |
+| `coordZ` | Yes | Yes | Axial physical coordinate; vertical table travel position. |
+| `volume_mm3` | Yes | Yes | Non-linear cubic mass; provides high-variance separation for large atypical masses. |
+| `diameter_mm` | **No (Pruned)** | **Yes (Retained)** | Pruned from K-means to prevent morphology from dominating 40% of Euclidean distance; retained in PostgreSQL/UI for standard clinical threshold inspection. |
 
 ---
 
