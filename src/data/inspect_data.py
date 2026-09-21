@@ -81,4 +81,4 @@ def audit_annotations(file_path: str) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-  audit_annotations("annotations.csv")
+  audit_annotations("./data/raw/annotations.csv")

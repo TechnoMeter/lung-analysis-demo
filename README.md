@@ -4,6 +4,25 @@ A Three.js and vis.js interactive medical data mockup.
 Obtained `annotations.csv` from the [LUNA16 Kaggle Dataset](https://www.kaggle.com/datasets/eliasmarcon/luna-16), containing 1,186 radiologist-confirmed pulmonary nodule findings across 601 thoracic CT studies.
 
 ---
+```t
+lung-analysis-demo/
+├── data/
+│   ├── raw/
+│   │   └── annotations.csv        # 1,186 raw LUNA16 findings
+│   └── processed/
+│       └── clean_findings.csv     # 1,186 cleaned rows with finding_id & volume_mm3
+├── docs/
+│   └── ui_states.png              # 4-state Excalidraw design
+├── notebooks/
+│   └── 01_exploratory_analysis.ipynb              # EDA, PCA, and K-means clustering
+├── src/
+│   └── data/
+│       ├── inspect_data.py        # Automated quality & coordinate audit
+│       └── clean_pipeline.py      # Production cleaning & derivation pipeline
+├── data_dictionary.md             # Column definitions and types
+└── README.md                      # Architecture, formulas, and clinical boundary
+
+```
 
 ## Data Dictionary (Finding-Level)
 
@@ -50,7 +69,7 @@ $$V = \frac{4}{3}\pi r^3 = \frac{4}{3}\pi \left(\frac{d}{2}\right)^3 = \frac{\pi
 
 The 4 core interface states were designed in [Excalidraw](https://excalidraw.com) to establish spatial hierarchy, interaction flows, and camera transitions before frontend development:
 
-![Interface States](ui_states.png)
+![Interface States](docs/ui_states.png)
 
 1. **Macro Overview**: Full 3D coordinate space with faint anatomical lung silhouettes, global dataset indicators (601 studies, 1,186 findings), and filter controls.
 2. **Cluster Focus**: Zoomed view isolating a single cluster, dimming background groups to reveal peripheral outlier points.
@@ -60,4 +79,4 @@ The 4 core interface states were designed in [Excalidraw](https://excalidraw.com
 ---
 
 ## Clinical Boundary and Disclaimer
-This prototype is built strictly for pattern discovery and visual exploration. It does not  provide medical diagnoses.
+This prototype is built strictly for pattern discovery and visual exploration. It does not provide medical diagnoses.

@@ -52,8 +52,8 @@ def preprocess_annotations(raw_path: str, output_path: str) -> pd.DataFrame:
 
 if __name__ == "__main__":
   clean_df = preprocess_annotations(
-      raw_path="annotations.csv",
-      output_path="clean_findings.csv",
+      raw_path="./data/raw/annotations.csv",
+      output_path="./data/processed/clean_findings.csv",
   )
   print(
       f"Pipeline executed successfully. Processed {len(clean_df)} findings."
