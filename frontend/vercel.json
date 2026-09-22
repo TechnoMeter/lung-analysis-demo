@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://lung-analysis-demo.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://lung-analysis-demo.onrender.com/health"
+    }
+  ]
+}
