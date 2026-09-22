@@ -8,6 +8,8 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { createAnatomicalHulls } from './anatomicalHull.js';
 import { createFindingsMeshGroup, CLUSTER_COLORS } from './particles.js';
 import { CameraManager } from './cameraManager.js';
+import { showKnowledgeGraph, hideKnowledgeGraph, copyTextToClipboard } from './knowledgeGraph.js';
+
 
 // DOM Mounts
 const container = document.getElementById('viewport-container');
@@ -23,7 +25,8 @@ const uiPanels = [
   '#cluster-legend',
   '#viewport-controls',
   '#inspection-drawer',
-  '#filter-toolbar'
+  '#filter-toolbar',
+  '#graph-overlay'
 ];
 
 uiPanels.forEach((selector) => {
@@ -108,14 +111,13 @@ createFindingsMeshGroup()
     loader.innerHTML = `<p style="color:#f43f5e;">Failed to connect to FastAPI on :8000.</p>`;
   });
 
-// 7. Raycaster & Pointer Tracking
+// 7. Raycaster & Pointer Tracking Guard
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// 7. Raycaster & Pointer Tracking Guard
 window.addEventListener('pointermove', (event) => {
   // If pointer is hovering over any UI container, don't cast into 3D scene
-  if (event.target.closest('#cockpit-header, #cluster-legend, #viewport-controls, #inspection-drawer, #hover-tooltip')) {
+  if (event.target.closest('#cockpit-header, #cluster-legend, #viewport-controls, #inspection-drawer, #hover-tooltip, #graph-overlay')) {
     if (hoveredMesh && hoveredMesh !== selectedMesh) {
       hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale);
       hoveredMesh = null;
@@ -162,7 +164,7 @@ window.addEventListener('pointermove', (event) => {
   }
 });
 
-// 8. Finding Click Selection & Drawer Trigger
+// 8. Finding Click Selection & Neighborhood Focus
 window.addEventListener('click', () => {
   if (hoveredMesh) {
     selectFinding(hoveredMesh);
@@ -173,22 +175,36 @@ function selectFinding(mesh) {
   selectedMesh = mesh;
   const data = mesh.userData;
 
-  // Fly camera to focus on finding
-  cameraManager.flyTo(mesh.position, new THREE.Vector3(0, 0.2, 0.8), 900);
+  // Fly camera to a safe focal distance (1.8 units away) to avoid clipping inside neighbors
+  cameraManager.flyTo(mesh.position, new THREE.Vector3(0, 0.35, 1.8), 900);
 
-  // Populate Slide-Out Drawer
+  // Dim surrounding background findings so target finding is not obstructed
+  findingsMeshes.forEach((m) => {
+    if (m === mesh) {
+      m.material.opacity = 1.0;
+      m.scale.setScalar(m.userData.originalScale * 1.4);
+      m.userData.isFilteredOut = false;
+    } else {
+      const isSibling = m.userData.seriesuid === data.seriesuid;
+      m.material.opacity = isSibling ? 0.35 : 0.10;
+      m.scale.setScalar(m.userData.originalScale * 0.85);
+      m.userData.isFilteredOut = !isSibling; // Sibling nodules remain interactive
+    }
+  });
+
+  // Populate Slide-Out Inspection Drawer
   document.getElementById('dr-finding-id').textContent = data.finding_id;
   document.getElementById('dr-anomaly-score').textContent = data.anomaly_score.toFixed(3);
   document.getElementById('dr-progress-fill').style.width = `${Math.round(data.anomaly_score * 100)}%`;
   document.getElementById('dr-diameter').textContent = `${data.diameter_mm.toFixed(1)} mm`;
   document.getElementById('dr-volume').textContent = `${data.volume_mm3.toLocaleString(undefined, { maximumFractionDigits: 1 })} mm³`;
-// Populate full 3-axis continuous scanner coordinates (mm)
+  document.getElementById('dr-seriesuid').textContent = data.seriesuid;
+
+  // Format 3-axis continuous coordinates (mm)
   const formatCoord = (val) => (val >= 0 ? `+${val.toFixed(1)}` : val.toFixed(1));
   document.getElementById('dr-coords-xyz').textContent = 
     `${formatCoord(data.coord_x)}, ${formatCoord(data.coord_y)}, ${formatCoord(data.coord_z)} mm`;
-  document.getElementById('dr-seriesuid').textContent = data.seriesuid;
 
-  // Cluster label metadata
   const clusterNames = {
     0: 'Right Lung Typical',
     1: 'High-Volume Lesions',
@@ -203,7 +219,7 @@ function selectFinding(mesh) {
   const statusSub = document.getElementById('dr-status-sub');
   const thresholdTag = document.getElementById('dr-threshold-tag');
 
-if (data.anomaly_score >= 0.40) {
+  if (data.anomaly_score >= 0.40) {
     statusCard.className = 'status-card';
     statusTitle.textContent = 'High-Priority Geometric Outlier';
     statusSub.textContent = `Centroid deviation score: ${data.anomaly_score.toFixed(3)} (Top Outlier Tier)`;
@@ -219,13 +235,67 @@ if (data.anomaly_score >= 0.40) {
   drawer.classList.remove('hidden');
 }
 
+// Reset all findings opacity and bounds back to standard state
+function resetFindingsDisplay() {
+  findingsMeshes.forEach((m) => {
+    m.material.opacity = 1.0;
+    m.scale.setScalar(m.userData.originalScale);
+    m.userData.isFilteredOut = false;
+  });
+}
+
 // Drawer Close Handler
 document.getElementById('btn-close-drawer').addEventListener('click', () => {
   drawer.classList.add('hidden');
+  resetFindingsDisplay();
+  selectedMesh = null;
+});
+
+// Copy Series UID from Finding Detail Drawer
+const copyDrawerUidBtn = document.getElementById('btn-copy-drawer-uid');
+if (copyDrawerUidBtn) {
+  copyDrawerUidBtn.addEventListener('click', () => {
+    const seriesUidText = document.getElementById('dr-seriesuid').textContent;
+    copyTextToClipboard(seriesUidText, copyDrawerUidBtn);
+  });
+}
+
+// CTA button in Finding Detail Drawer -> Open Knowledge Graph
+document.getElementById('btn-open-graph').addEventListener('click', () => {
   if (selectedMesh) {
-    selectedMesh.scale.setScalar(selectedMesh.userData.originalScale);
-    selectedMesh = null;
+    const data = selectedMesh.userData;
+    showKnowledgeGraph(data.seriesuid, data.finding_id, (findingId) => {
+      const targetMesh = findingsMeshes.find((m) => m.userData.finding_id === findingId);
+      if (targetMesh) {
+        hideKnowledgeGraph();
+        selectFinding(targetMesh);
+      }
+    });
   }
+});
+
+// Global Graph button in top filter toolbar
+document.getElementById('btn-open-graph-global').addEventListener('click', () => {
+  const targetSeriesUid = selectedMesh 
+    ? selectedMesh.userData.seriesuid 
+    : (findingsMeshes.length > 0 ? findingsMeshes[0].userData.seriesuid : '');
+
+  const targetFindingId = selectedMesh ? selectedMesh.userData.finding_id : null;
+
+  if (targetSeriesUid) {
+    showKnowledgeGraph(targetSeriesUid, targetFindingId, (findingId) => {
+      const targetMesh = findingsMeshes.find((m) => m.userData.finding_id === findingId);
+      if (targetMesh) {
+        hideKnowledgeGraph();
+        selectFinding(targetMesh);
+      }
+    });
+  }
+});
+
+// Close graph button -> Return to 3D Viewport
+document.getElementById('btn-close-graph').addEventListener('click', () => {
+  hideKnowledgeGraph();
 });
 
 // 9. Cohort Filter Toolbar Implementation
@@ -233,6 +303,7 @@ const filterButtons = document.querySelectorAll('.filter-btn');
 
 filterButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
+    if (btn.id === 'btn-open-graph-global') return; // Handled separately
     filterButtons.forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
 
@@ -266,23 +337,21 @@ function applyFilter(filter) {
     if (match) {
       mesh.material.opacity = 1.0;
       mesh.scale.setScalar(data.originalScale);
-      mesh.userData.isFilteredOut = false; // Active for raycasting
+      mesh.userData.isFilteredOut = false;
       targetCentroid.add(mesh.position);
       activeCount++;
     } else {
       mesh.material.opacity = 0.06;
       mesh.scale.setScalar(data.originalScale * 0.7);
-      mesh.userData.isFilteredOut = true;  // Ignore in raycasting
+      mesh.userData.isFilteredOut = true;
     }
   });
 
   activeFindingsDisplay.textContent = activeCount.toLocaleString();
 
-// If a specific cluster or outlier subset was selected, fly camera to its centroid
+  // Focus camera on cohort center with upward bias on outliers
   if (filter !== 'all' && activeCount > 0) {
     targetCentroid.divideScalar(activeCount);
-
-    // If filtering outliers, bias Y upward slightly to focus on thoracic masses rather than floor table offsets
     if (filter === 'outliers') {
       targetCentroid.y += 0.30;
       cameraManager.flyTo(targetCentroid, new THREE.Vector3(0, 0.1, 2.2), 1000);
@@ -325,6 +394,9 @@ btnModePca.addEventListener('click', () => setCoordinateMode('pca'));
 // Toolbar Handlers
 document.getElementById('btn-reset-cam').addEventListener('click', () => {
   cameraManager.reset(800);
+  drawer.classList.add('hidden');
+  resetFindingsDisplay();
+  selectedMesh = null;
 });
 
 const toggleHullsBtn = document.getElementById('btn-toggle-hulls');
@@ -341,7 +413,7 @@ toggleGlowBtn.addEventListener('click', () => {
   toggleGlowBtn.classList.toggle('active', bloomActive);
 });
 
-// Resize
+// Window Resize Handling
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -349,7 +421,9 @@ window.addEventListener('resize', () => {
   composer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// 12. 60 FPS Render Loop with TWEEN Updates
+
+
+// 12. 60 FPS Render Loop
 let lastTime = performance.now();
 let frames = 0;
 
@@ -359,7 +433,6 @@ function animate(time) {
   TWEEN.update();
   controls.update();
 
-  // Smooth lerp when toggling coordinate modes
   for (let i = 0; i < findingsMeshes.length; i++) {
     const mesh = findingsMeshes[i];
     if (mesh.userData.targetPos) {
@@ -378,3 +451,28 @@ function animate(time) {
 }
 
 requestAnimationFrame(animate);
+
+// 13. Ergonomic Keyboard Shortcuts
+window.addEventListener('keydown', (e) => {
+  // Prevent interception if typing inside an active input or textarea
+  if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
+  // Escape: Close Inspection Drawer OR return from Knowledge Graph to 3D
+  if (e.key === 'Escape') {
+    const graphOverlay = document.getElementById('graph-overlay');
+    if (graphOverlay && !graphOverlay.classList.contains('hidden')) {
+      hideKnowledgeGraph();
+    } else if (drawer && !drawer.classList.contains('hidden')) {
+      document.getElementById('btn-close-drawer').click();
+    }
+  } 
+  // Space: Toggle Coordinate Mode (Anatomical CT mm <-> Latent PCA 3D)
+  else if (e.code === 'Space') {
+    e.preventDefault();
+    setCoordinateMode(currentMode === 'anat' ? 'pca' : 'anat');
+  } 
+  // R: Reset Camera Focus to Macro Overview
+  else if (e.key === 'r' || e.key === 'R') {
+    document.getElementById('btn-reset-cam').click();
+  }
+});

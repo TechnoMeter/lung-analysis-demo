@@ -24,12 +24,13 @@ lung-analysis-demo/
 ├── frontend/
 │   ├── index.html                 # Single Page Application entry & HUD cockpit layout
 │   ├── css/
-│   │   └── main.css               # Dark medical cockpit styling, glassmorphism & responsive dock
+│   │   └── main.css               # Dark medical cockpit styling & responsive dock
 │   └── js/
 │       ├── main.js                # Three.js scene, raycasting, filter engine & render loop
 │       ├── cameraManager.js       # Cinematic camera tweening engine (@tweenjs/tween.js)
 │       ├── particles.js           # Volumetric mesh scaling & coordinate lerp interpolation
-│       └── anatomicalHull.js      # Translucent bilateral pleural hulls & anatomical context
+│       ├── anatomicalHull.js      # Translucent bilateral pleural hulls & anatomical context
+│       └── knowledgeGraph.js      # 2D vis.js hierarchical DAG, DOM tooltips & provenance engine
 ├── src/
 │   ├── data/
 │   │   ├── inspect_data.py        # Automated quality & coordinate audit
@@ -59,6 +60,19 @@ lung-analysis-demo/
 ├── data_dictionary.md             # Complete 12-column entity dictionary
 └── README.md                      # Architecture, mathematics, and system design
 ```
+
+---
+
+## Interface Design
+
+The 4 core interface states were designed in [Excalidraw](https://excalidraw.com) to establish spatial hierarchy, interaction flows, and camera transitions before frontend development:
+
+![Interface States](docs/ui_states.png)
+
+1. **Macro Overview**: Full 3D coordinate space with faint anatomical lung silhouettes, global dataset indicators (601 studies, 1,186 findings), and filter controls.
+2. **Cluster Focus**: Zoomed view isolating a single cluster, dimming background groups to reveal peripheral outlier points.
+3. **Finding Details**: Direct target lock on a single nodule accompanied by a side panel displaying coordinates, diameter, and relative centroid distance.
+4. **Relational Knowledge Graph**: A 2D vis.js network view mapping parent `Study (seriesuid)` down to `Finding`, `Cluster`, and measurement properties.
 
 ---
 
@@ -345,7 +359,7 @@ Using Three.js's `EffectComposer` and `UnrealBloomPass`:
 
 ## Buyer UX Interaction Layer & Finding Inspection Drawer
 
-To fulfill the interactive clinical discovery loop (**Enter $\rightarrow$ Zoom $\rightarrow$ Investigate**) defined in UI State 3[cite: 14], an interactive inspection engine was built using Three.js Raycasting, `@tweenjs/tween.js`, and an accessible glassmorphic UI overlay:
+To fulfill the interactive clinical discovery loop (**Enter $\rightarrow$ Zoom $\rightarrow$ Investigate**) defined in UI State 3, an interactive inspection engine was built using Three.js Raycasting, `@tweenjs/tween.js`, and an accessible UI overlay:
 
 ```text
 User Hover Event
@@ -373,7 +387,7 @@ Camera choreography is isolated into a standalone `CameraManager` class powered 
 - **Centroid Framing Bias:** When focusing on the `High Outliers (>0.40)` cohort, the focus target applies a $+0.30$ vertical bias ($Y$) to counteract negative axial couch travel offsets (Cluster 3), framing primary thoracic masses dead-center in the viewport.
 
 ### 3. Slide-Out Inspection Drawer (UI State 3 Architecture)
-Clicking any lesion smoothly opens a glassmorphic sidebar (`backdrop-filter: blur(20px)`) that surfaces clinical and mathematical context:
+Clicking any lesion smoothly opens a sidebar (`backdrop-filter: blur(20px)`) that surfaces clinical and mathematical context:
 - **Full 3-Axis Scanner Coordinates:** Displays physical scanner coordinates in millimeters: lateral ($X$), sagittal chest depth ($Y$), and axial couch travel ($Z$).
 - **Fleischner Society Clinical Thresholding:** Compares measured linear diameter against standard nodule management guidelines, automatically flagging lesions $\ge 8.0\text{ mm}$ as `≥8mm Fleischner High` (red badge) and smaller nodules as `<8mm Fleischner Low` (cyan badge).
 - **Explainable Anomaly Progress Bar:** Visualizes the normalized Euclidean distance from the cluster centroid in standardized 4D space:
@@ -388,21 +402,68 @@ A responsive top toolbar provides one-click isolation of clinical subsets (`All`
 - **Non-Destructive Mesh Dimming:** Rather than removing elements from the scene (which causes garbage-collection pauses), non-matching meshes have their material opacity reduced to $0.06$ while matching nodes remain at $1.0$.
 - **Dynamic Centroid Re-Centering:** The camera calculates the collective centroid of the matching cohort and glides smoothly into the center of the active cluster.
 
-### 5. UI Event Isolation & Responsive Mobile Dock
-- **Event Propagation Barriers:** UI panels (`#cockpit-header`, `#cluster-legend`, `#viewport-controls`, `#inspection-drawer`) stop propagation on pointer and wheel events (`stopPropagation`), preventing UI clicks from accidentally rotating or zooming the 3D scene[cite: 3].
-- **Unified Glassmorphic Pill Dock:** Bottom controls are unified in an ergonomic pill container centered along the bottom axis.
+### 5. UI Event Isolation, Ergonomic Shortcuts & PACS Export
+- **Event Propagation Barriers:** UI panels (`#cockpit-header`, `#cluster-legend`, `#viewport-controls`, `#inspection-drawer`, `#graph-overlay`) attach active `stopPropagation` listeners across pointer, mouse, touch, and wheel events, preventing DOM UI clicks from spinning or zooming the 3D canvas.
+- **Ergonomic Live Demo Shortcuts:** 
+  - `Space`: Smoothly toggles between physical Anatomical CT coordinates and statistical Latent PCA 3D space.
+  - `Escape`: Closes the inspection drawer or exits the 2D Knowledge Graph back to the 3D medical viewport.
+  - `R`: Immediately resets the 3D camera to the macro overview.
+- **1-Click DICOM UID Clipboard Exporter:** Both the inspection drawer and knowledge graph include a 1-click clipboard exporter (`📋 Copy`) that extracts the canonical DICOM Series Instance UID with tactile feedback (`✓ Copied!`) for PACS or EMR verification.
+- **Unified Pill Dock:** Bottom controls are unified in an ergonomic pill container centered along the bottom axis.
 - **Responsive Flex-Wrapping:** The filter toolbar wraps cleanly across multiple lines on smaller viewports, hiding default browser scrollbars while retaining touch and wheel scroll capability. On mobile screens ($<768\text{px}$), the inspection drawer expands into a full-width drawer for touch readability.
-  
-## Interface Design
 
-The 4 core interface states were designed in [Excalidraw](https://excalidraw.com) to establish spatial hierarchy, interaction flows, and camera transitions before frontend development:
+---
 
-![Interface States](docs/ui_states.png)
+## 2D Relational Knowledge Graph & Clinical Provenance (vis.js)
 
-1. **Macro Overview**: Full 3D coordinate space with faint anatomical lung silhouettes, global dataset indicators (601 studies, 1,186 findings), and filter controls.
-2. **Cluster Focus**: Zoomed view isolating a single cluster, dimming background groups to reveal peripheral outlier points.
-3. **Finding Details**: Direct target lock on a single nodule accompanied by a side panel displaying coordinates, diameter, and relative centroid distance.
-4. **Relational Knowledge Graph**: A 2D vis.js network view mapping parent `Study (seriesuid)` down to `Finding`, `Cluster`, and measurement properties.
+To satisfy the relational exploration requirement (**UI State 4**), an interactive network graph was engineered using **vis.js (vis-network 9.1.9)**, mapping the full clinical provenance from the parent CT acquisition session down to individual nodule morphometrics and clinical guidelines:
+
+```text
+┌────────────────────────────────────────────────────────┐
+│        Level 0: CT STUDY ACQUISITION (seriesuid)       │
+└────────────────────────────────────────────────────────┘
+                            │
+        ┌───────────────────┴───────────────────┐
+        ▼                                       ▼
+┌───────────────────────────┐       ┌───────────────────────────┐
+│ Level 1: ★ ACTIVE FOCUS   │       │ Level 1: SIBLING FINDING  │
+│          Finding F-0765   │       │          Finding F-0764   │
+└───────────────────────────┘       └───────────────────────────┘
+        │           │                               │
+        │           ▼                               ▼
+        │   ┌─────────────────────┐       ┌─────────────────────┐
+        │   │ Level 2: COHORT     │       │ Level 2: COHORT     │
+        │   │ Cluster 1: Masses   │       │ Cluster 2: Typical  │
+        │   └─────────────────────┘       └─────────────────────┘
+        ▼
+┌─────────────────────────────────┐
+│ Level 2: MORPHOMETRICS          │
+│ 32.3 mm • 17,595 mm³            │
+└─────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────┐
+│ Level 3: FLEISCHNER GUIDELINE   │
+│ ≥8mm High Risk (Biopsy / HRCT)  │
+└─────────────────────────────────┘
+```
+
+### 1. Top-Down Directed Acyclic Graph (DAG) Architecture
+Rather than using an unconstrained force-directed network (which forms tangled, overlapping graph balls), the view is structured as a top-down hierarchical tree (`layout.hierarchical.direction = 'UD'`) enforcing diagnostic hierarchy:
+- **Level 0 (Root Scan):** Parent CT scan session card displaying the truncated DICOM Series Instance UID with cyan illumination.
+- **Level 1 (Findings):** Child findings detected in that scan. The selected finding is highlighted in vivid rose with an active focus badge (`★ ACTIVE FOCUS`) and glowing edge branches, while sibling findings render in soft indigo.
+- **Level 2 (Cohorts & Morphometrics):** The active finding branches into its continuous physical dimensions ($d = 32.3\text{ mm}$, $V = 17,595\text{ mm}^3$) alongside its assigned K-Means cohort diamond.
+- **Level 3 (Clinical Guidelines & Anomaly Status):** Translates physical findings into actionable guidelines, flagging lesions $\ge 8.0\text{ mm}$ with an emerald/rose Fleischner management badge and anomaly tier score.
+
+### 2. Bi-Directional Cross-View Synchronization
+The 3D spatial viewport and 2D relational graph operate in a synchronized interaction loop:
+- **3D $\rightarrow$ 2D Navigation:** Clicking **`Explore in Knowledge Graph →`** inside the 3D inspection drawer immediately serializes that finding's study hierarchy, opens the overlay, and animates camera focus to that finding node with spring dampening.
+- **2D $\rightarrow$ 3D Navigation:** Clicking any sibling finding node (e.g., `F-0764`) inside the 2D network closes the graph overlay, re-centers the Three.js 3D camera onto that specific nodule in 3D space, isolates its neighborhood, and opens its inspection drawer.
+- **Safe Canvas Unmounting:** When closed, the graph overlay is set to `display: none !important;`, preventing underlying WebGL canvas hit-testing from being blocked by transparent overlay canvases.
+
+### 3.  Tooltip & Clean Typography Engine
+- **HTML DOM Tooltips:** Native vis.js string escaping issues were solved by styling `div.vis-tooltip` with high z-index elevation, and formatted monospace text.
+- **Edge Noise Reduction:** Removed repeated label strings (`"contains"`, `"assigned_to"`) from edges, using colored directional Bezier curves (smoothness $0.4$) to communicate containment and assignment without visual clutter.
 
 ---
 

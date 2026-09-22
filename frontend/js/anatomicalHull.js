@@ -7,7 +7,7 @@ export function createAnatomicalHulls() {
 
   const lobeGeometry = new THREE.SphereGeometry(1.4, 32, 24);
 
-  // Soft, translucent glass material that does not compete with the findings
+  // Soft material that does not compete with the findings
   const hullMaterial = new THREE.MeshPhysicalMaterial({
     color: 0x38bdf8,
     transparent: true,

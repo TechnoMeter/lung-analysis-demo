@@ -599,7 +599,7 @@ body, html {
 }
 
 /* ==========================================================================
-   Unified Glassmorphic Bottom Dock
+   Unified Bottom Dock
    ========================================================================== */
 #viewport-controls {
   position: absolute;
@@ -753,6 +753,261 @@ body, html {
   #viewport-controls .hud-btn {
     padding: 6px 10px;
     font-size: 0.68rem;
+  }
+}
+
+/* ==========================================================================
+            vis.js Relational Knowledge Graph Overlay (UI State 4)
+   ========================================================================== */
+.graph-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 60% 40%, #0d1527 0%, #050811 100%);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* display: none removes the entire overlay from hit-testing when closed */
+.graph-overlay.hidden {
+  display: none !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.graph-header {
+  height: 70px;
+  padding: 0 24px;
+  background: rgba(15, 23, 42, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  gap: 16px;
+}
+
+.graph-title-group h2 {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  color: var(--text-main);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.graph-pretitle {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.graph-legend-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 5px 12px;
+  border-radius: 14px;
+  font-size: 0.70rem;
+  color: var(--text-muted);
+}
+
+.node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.graph-back-btn {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.graph-back-btn:hover {
+  background: var(--accent-cyan);
+  color: #060911;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+}
+
+.graph-workspace {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.graph-side-panel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 300px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.graph-card {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.card-eyebrow {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--accent-cyan);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.graph-card h3 {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.card-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
+.study-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-box .label {
+  font-size: 0.60rem;
+  color: var(--text-muted);
+}
+
+.stat-box .val {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-top: 2px;
+}
+
+.graph-controls-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.70rem;
+  color: var(--text-muted);
+}
+
+.graph-controls-list strong {
+  color: var(--text-main);
+}
+
+#vis-graph-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  
+  /* Force vis.js native tooltip container into dark cockpit styling */
+div.vis-tooltip {
+  position: absolute;
+  background: rgba(15, 23, 42, 0.96) !important;
+  color: #f8fafc !important;
+  font-family: Consolas, monospace !important;
+  font-size: 0.74rem !important;
+  padding: 8px 12px !important;
+  border: 1px solid var(--accent-cyan) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7) !important;
+  pointer-events: none;
+  z-index: 1000 !important;
+  white-space: pre-line !important;
+}
+
+/* Quick-Copy HUD Button */
+.hud-chip-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.hud-chip-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  transform: translateY(-1px);
+}
+
+.hud-chip-btn.copied {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: #10b981 !important;
+  color: #34d399 !important;
+}
+
+/* Force vis.js native tooltip container into dark cockpit styling */
+div.vis-tooltip {
+  position: absolute;
+  background: rgba(15, 23, 42, 0.96) !important;
+  color: #f8fafc !important;
+  font-family: Consolas, monospace !important;
+  font-size: 0.74rem !important;
+  padding: 8px 12px !important;
+  border: 1px solid var(--accent-cyan) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7) !important;
+  pointer-events: none;
+  z-index: 1000 !important;
+  white-space: pre-line !important;
+}
+
+@media (max-width: 900px) {
+  .graph-legend-strip, .graph-side-panel {
+    display: none;
   }
 }
 
