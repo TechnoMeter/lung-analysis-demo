@@ -204,7 +204,7 @@ To provide an intuitive metric for the UI Finding Detail drawer without making m
 
 $$d_i = \|\mathbf{z}_i - \boldsymbol{\mu}_{c(i)}\|_2 = \sqrt{\sum_{j=1}^{4} (z_{ij} - \mu_{c(i), j})^2}$$
 
-$$\text{anomaly\_score}_i = \frac{d_i - d_{\min}}{d_{\max} - d_{\min}} \in [0.0, 1.0]$$
+$$\text{anomaly_score}_i = \frac{d_i - d_{\min}}{d_{\max} - d_{\min}} \in [0.0, 1.0]$$
 
 Findings near $0.0$ represent typical, centrally clustered nodules; findings approaching $1.0$ reflect geometric or volumetric outliers located on the periphery of their cluster.
 
