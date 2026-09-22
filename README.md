@@ -178,10 +178,10 @@ Input Vector (1,186 findings)
 - **Cluster Count ($k=4$):** Evaluated at a **Silhouette Score of 0.3726**. Partitions findings into bilateral anatomical regions (Cluster 0: Right Lung Typical, Cluster 2: Left Lung Typical) while isolating rare high-volume lesions into dedicated outlier groups (Clusters 1 and 3).
 - **PCA 3D Projection:** Projects 4D feature space to 3 visual coordinates (`pca_x`, `pca_y`, `pca_z`) for Three.js rendering, preserving **82.13% of total dataset variance** (PC1: 32.07%, PC2: 25.65%, PC3: 24.42%).
 
-### 2. Empirical Verification: 4D Parsimonious vs. 5D Collinear PCA
+### 2. Empirical Verification: 4D  vs. 5D  PCA
 An empirical experiment was executed in `scripts/verify_pca_variance.py` to evaluate the impact of feature collinearity ($r = 0.893$ between diameter and volume) on dimensionality reduction:
 
-| Metric | Parsimonious 4D ($X, Y, Z, V$) | Naive 5D ($X, Y, Z, d, V$) | Variance / Structural Impact |
+| Metric |  4D ($X, Y, Z, V$) |  5D ($X, Y, Z, d, V$) | Variance / Structural Impact |
 | :--- | :--- | :--- | :--- |
 | **PC1 Variance** | 32.07% | 38.09% | **+6.02%** artificial inflation due to duplicated size signal. |
 | **PC2 Variance** | 25.65% | 25.46% | -0.19% |
