@@ -1,6 +1,8 @@
 # lung-analysis-demo
 > **Interactive Thoracic Computed Tomography Discovery Platform** powered by Three.js (3D Spatial Viewport), vis.js (2D Relational Knowledge Graph), FastAPI, and Dockerized PostgreSQL.
 
+## LIVE DEMO: [https://lung-analysis-demo.vercel.app](https://lung-analysis-demo.vercel.app/)
+
 Obtained `./data/raw/annotations.csv` from the [LUNA16 Kaggle Benchmark](https://www.kaggle.com/datasets/eliasmarcon/luna-16), containing 1,186 radiologist-confirmed pulmonary nodule findings across 601 thoracic CT studies.
 
 We deliberately bypassed `candidates_V2.csv` (which contains over 750,000 entries). That file is 99.8% algorithmic scanner noise (false alarms like blood vessels or bone tissue) and lacks nodule diameter. Loading that many points would freeze a WebGL browser canvas. `./data/raw/annotations.csv` gives 1,186 true clinical lesions with physical dimensions, enabling 60 FPS 3D rendering and meaningful multi-feature clustering.
