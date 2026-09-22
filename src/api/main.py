@@ -1,8 +1,8 @@
 # src/api/main.py
-"""FastAPI production entry point with CORS middleware and API routers."""
+"""FastAPI production entry point with CORS middleware, API routers, and Static SPA mount."""
 
-import sys
 from pathlib import Path
+import sys
 
 # Inject project root into sys.path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from src.api.routes import clusters, findings, graph, health
 
 app = FastAPI(
@@ -24,10 +25,10 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS for local development and future cloud web deployment
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for local dev and cloud preview
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,18 +40,7 @@ app.include_router(findings.router)
 app.include_router(clusters.router)
 app.include_router(graph.router)
 
-
-@app.get("/", tags=["Root"])
-def root():
-  """Root endpoint providing quick navigation links."""
-  return {
-      "message": (
-          "Welcome to Lung Insight API - Interactive AI Medical Pattern"
-          " Explorer"
-      ),
-      "documentation": "/docs",
-      "health_check": "/health",
-      "findings_endpoint": "/api/v1/findings",
-      "clusters_endpoint": "/api/v1/clusters/summary",
-      "graph_endpoint": "/api/v1/graph",
-  }
+# Mount Frontend Static Assets
+frontend_dir = PROJECT_ROOT / "frontend"
+if frontend_dir.exists():
+  app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="static")

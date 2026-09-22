@@ -21,6 +21,15 @@ lung-analysis-demo/
 │   └── ui_states.png              # 4-state Excalidraw UI architecture
 ├── notebooks/
 │   └── 1_exploratory_analysis.ipynb # Distribution, spatial Exploratory Data Analysis, & clustering
+├── frontend/
+│   ├── index.html                 # Single Page Application entry & HUD cockpit layout
+│   ├── css/
+│   │   └── main.css               # Dark medical cockpit styling, glassmorphism & responsive dock
+│   └── js/
+│       ├── main.js                # Three.js scene, raycasting, filter engine & render loop
+│       ├── cameraManager.js       # Cinematic camera tweening engine (@tweenjs/tween.js)
+│       ├── particles.js           # Volumetric mesh scaling & coordinate lerp interpolation
+│       └── anatomicalHull.js      # Translucent bilateral pleural hulls & anatomical context
 ├── src/
 │   ├── data/
 │   │   ├── inspect_data.py        # Automated quality & coordinate audit
@@ -281,6 +290,109 @@ Running the automated test suite against the live Uvicorn server confirmed all c
 
 ---
 
+## Interactive 3D Spatial Viewport (Three.js & WebGL)
+
+To move beyond static 2D CT grayscale slices, an interactive 3D spatial viewport was engineered using **Three.js (r162)**, connecting directly to FastAPI to render all 1,186 findings at a locked 60 FPS:
+
+```text
+       [PostgreSQL Database (port 5432)]
+                      │
+                      ▼
+        [FastAPI Service (port 8000)]
+                      │
+        GET /api/v1/findings (1,186 findings)
+                      │
+                      ▼
+┌────────────────────────────────────────────────────────┐
+│              Three.js 3D Medical Cockpit               │
+│ • Dual Coordinate Space (Anatomical CT vs Latent PCA)  │
+│ • Volumetric Cubic Scaling (V = π/6 · d³)              │
+│ • Studio 3-Point Lighting Rig (Specular 3D Curvature)  │
+│ • Frosted Pleural Cavity Hulls (Anatomical Context)    │
+│ • Selective Post-Processing Bloom for High Outliers    │
+└────────────────────────────────────────────────────────┘  
+```
+
+### 1. Dual Coordinate Space & Smooth Interpolation
+The viewport features a real-time coordinate mode toggle enabling users to alternate between physical human anatomy and statistical machine learning space:
+- **Anatomical Mode (Physical CT mm):** Coordinates map directly to physical scanner millimeters re-centered around empirical thoracic medians ($X \approx 0\text{ mm}$, $Y \approx 10\text{ mm}$, $Z \approx -195\text{ mm}$). This accurately reveals the true physical lung morphology and illustrates longitudinal scanner table offsets along the axial axis.
+- **Latent Mode (PCA 3D Space):** Rotates the findings into the 3 principal orthogonal axes of maximum variance (`pca_x`, `pca_y`, `pca_z`), clustering similar lesions into distinct mathematical neighborhoods.
+- **Kinematic Vector Interpolation:** Switching modes executes continuous linear interpolation (`position.lerp(targetPos, 0.08)`) across all 1,186 meshes inside the animation loop, providing a smooth animated transition between physical anatomy and latent feature space.
+
+### 2. Physical Volumetric Mesh Scaling
+Rather than rendering uniform 2D point sprites, each finding is instantiated as an independent 3D `SphereGeometry` whose physical radius is scaled cubically by derived volume ($V = \frac{\pi}{6}d^3$):
+
+$$r_i = \max\left(0.045, \; \min\left(0.28, \; \sqrt[3]{V_i} \cdot 0.010\right)\right)$$
+
+Sub-centimeter nodules appear as compact nodes ($r \approx 0.045$), while large clinical masses (Cluster 1, averaging over $5,800\text{ mm}^3$) expand into prominent 3D spherical bodies.
+
+### 3. Studio 3-Point Lighting Rig & Depth Preservation
+To prevent spherical meshes from appearing flat or washed out under post-processing bloom, a balanced three-point lighting system was constructed:
+- **Key Light (Top-Right, Intensity 1.8):** High-intensity white directional light casting sharp specular highlights on the upper surfaces of nodule spheres.
+- **Fill Light (Lower-Left, Intensity 0.6):** Soft cyan directional light lifting shadow cores to maintain color recognition.
+- **Rim / Back Light (Rear-Center, Intensity 1.0):** Indigo backlight defining the curved silhouettes of findings against the deep dark cockpit background (`#070b14`).
+
+### 4. Bilateral Anatomical Pleural Hulls
+To provide anatomical grounding without obscuring lesion data, two elongated, translucent ellipsoidal shells frame the left and right lung fields:
+- **Material:** `MeshPhysicalMaterial` (`transmission: 0.90`, `roughness: 0.10`, `opacity: 0.05`) with a subtle wireframe overlay (`opacity: 0.04`).
+- **Anatomical Alignment:** Aligned to thoracic boundaries, visually demonstrating that Cluster 0 naturally occupies the right pleural cavity and Cluster 2 occupies the left pleural cavity.
+
+### 5. Selective Outlier Bloom Post-Processing
+Using Three.js's `EffectComposer` and `UnrealBloomPass`:
+- **Controlled Bloom Parameters:** Configured with `strength: 0.65`, `radius: 0.30`, and `threshold: 0.75` to ensure standard findings retain crisp diffuse shading.
+- **Luminescent Outlier Signaling:** High-anomaly findings (relative score $\ge 0.50$, such as `F-0765`) utilize emissive materials that exceed the bloom threshold, producing a localized glow that visually surfaces atypical lesions for review.
+---
+
+## Buyer UX Interaction Layer & Finding Inspection Drawer
+
+To fulfill the interactive clinical discovery loop (**Enter $\rightarrow$ Zoom $\rightarrow$ Investigate**) defined in UI State 3[cite: 14], an interactive inspection engine was built using Three.js Raycasting, `@tweenjs/tween.js`, and an accessible glassmorphic UI overlay:
+
+```text
+User Hover Event
+  └─► Raycaster Hit (active meshes only) ──► Floating HUD Tooltip (ID, d, Anomaly)
+
+User Click Event
+  ├─► CameraManager.flyTo() ──────────────► Smooth target lock onto nodule
+  ├─► Slide-Out Inspection Drawer opens ──► Real DICOM (X,Y,Z), Fleischner risk & score
+  └─► Background Dimming ─────────────────► Unfocused nodules drop to opacity 0.06
+
+Filter Toolbar Click (e.g., High Outliers >0.40)
+  ├─► Non-matching meshes dim & flag isFilteredOut = true (ignored by Raycaster)
+  └─► Camera glides to cohort centroid with upward bias for thoracic framing
+  ```
+  ### 1. Raycaster Pointer Tracking & Active Mesh Caching
+To maintain high frame rates while tracking pointer coordinates across 1,186 dynamic meshes:
+- **Normalized Device Coordinates (NDC):** Pointer events normalize screen $(X, Y)$ space to $[-1, +1]$ bounds.
+- **Filter-Aware Raycasting:** When a cohort filter is applied, dimmed background meshes are tagged with `isFilteredOut = true`. The raycaster explicitly filters out dimmed meshes prior to `raycaster.intersectObjects()`, preventing inactive background findings from intercepting hover tooltips or click events.
+- **Dynamic Scale Feedback:** Hovered spheres smoothly expand by $+35\%$ (`scaleScalar(originalScale * 1.35)`) and revert on pointer exit, providing immediate tactile confirmation without reallocating geometry buffers.
+
+### 2. Cinematic Camera Tweening Engine (CameraManager)
+Camera choreography is isolated into a standalone `CameraManager` class powered by `@tweenjs/tween.js`:
+- **Damped Cubic Transition:** Uses `TWEEN.Easing.Cubic.Out` to interpolate both the camera's eye position and `OrbitControls.target` vector simultaneously.
+- **Control Damping Isolation:** `OrbitControls` are programmatically disabled during active tweens to prevent control fighting and jitter, re-engaging only upon transition completion.
+- **Centroid Framing Bias:** When focusing on the `High Outliers (>0.40)` cohort, the focus target applies a $+0.30$ vertical bias ($Y$) to counteract negative axial couch travel offsets (Cluster 3), framing primary thoracic masses dead-center in the viewport.
+
+### 3. Slide-Out Inspection Drawer (UI State 3 Architecture)
+Clicking any lesion smoothly opens a glassmorphic sidebar (`backdrop-filter: blur(20px)`) that surfaces clinical and mathematical context:
+- **Full 3-Axis Scanner Coordinates:** Displays physical scanner coordinates in millimeters: lateral ($X$), sagittal chest depth ($Y$), and axial couch travel ($Z$).
+- **Fleischner Society Clinical Thresholding:** Compares measured linear diameter against standard nodule management guidelines, automatically flagging lesions $\ge 8.0\text{ mm}$ as `≥8mm Fleischner High` (red badge) and smaller nodules as `<8mm Fleischner Low` (cyan badge).
+- **Explainable Anomaly Progress Bar:** Visualizes the normalized Euclidean distance from the cluster centroid in standardized 4D space:
+
+$$\text{AnomalyScore}_i = \frac{\Vert{}\mathbf{z}_i - \boldsymbol{\mu}_{c(i)}\Vert{}_2 - d_{\min}}{d_{\max} - d_{\min}} \in [0.0, 1.0]$$
+
+A dynamic gradient bar (Cyan $\rightarrow$ Amber $\rightarrow$ Rose) translates raw distances into clear risk tiers without making diagnostic claims.
+- **Relational Provenance (1:N):** Surfaces parent `studies.seriesuid` for complete data lineage, providing the primary key required to launch the vis.js relational knowledge graph.
+
+### 4. Cohort Filter Toolbar & Background Mesh Dimming
+A responsive top toolbar provides one-click isolation of clinical subsets (`All`, `Right Lung`, `Masses`, `Left Lung`, `Couch Shifts`, and `High Outliers >0.40`):
+- **Non-Destructive Mesh Dimming:** Rather than removing elements from the scene (which causes garbage-collection pauses), non-matching meshes have their material opacity reduced to $0.06$ while matching nodes remain at $1.0$.
+- **Dynamic Centroid Re-Centering:** The camera calculates the collective centroid of the matching cohort and glides smoothly into the center of the active cluster.
+
+### 5. UI Event Isolation & Responsive Mobile Dock
+- **Event Propagation Barriers:** UI panels (`#cockpit-header`, `#cluster-legend`, `#viewport-controls`, `#inspection-drawer`) stop propagation on pointer and wheel events (`stopPropagation`), preventing UI clicks from accidentally rotating or zooming the 3D scene[cite: 3].
+- **Unified Glassmorphic Pill Dock:** Bottom controls are unified in an ergonomic pill container centered along the bottom axis.
+- **Responsive Flex-Wrapping:** The filter toolbar wraps cleanly across multiple lines on smaller viewports, hiding default browser scrollbars while retaining touch and wheel scroll capability. On mobile screens ($<768\text{px}$), the inspection drawer expands into a full-width drawer for touch readability.
+  
 ## Interface Design
 
 The 4 core interface states were designed in [Excalidraw](https://excalidraw.com) to establish spatial hierarchy, interaction flows, and camera transitions before frontend development:

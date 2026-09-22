@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lung Insight Demo</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <!-- Import map for Three.js and Tween.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/",
+        "@tweenjs/tween.js": "https://unpkg.com/@tweenjs/tween.js@23.1.2/dist/tween.esm.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="viewport-container"></div>
+
+  <!-- Top Cockpit HUD -->
+  <header id="cockpit-header">
+    <div class="brand">
+      <div class="brand-text">
+        <h1>LUNG INSIGHT DEMO</h1>
+        <span class="h2">LUNA16 Dataset</span>
+      </div>
+    </div>
+    
+    <!-- Cohort Filter Toolbar -->
+    <nav id="filter-toolbar">
+      <button class="filter-btn active" data-filter="all">All Findings (1,186)</button>
+      <button class="filter-btn" data-filter="cluster-0">Right Lung (593)</button>
+      <button class="filter-btn" data-filter="cluster-1">Masses (67)</button>
+      <button class="filter-btn" data-filter="cluster-2">Left Lung (494)</button>
+      <button class="filter-btn" data-filter="cluster-3">Couch Shifts (32)</button>
+      <button class="filter-btn outlier-btn" data-filter="outliers">High Outliers (>0.40)</button>
+    </nav>
+
+    <div class="metrics-strip">
+      <div class="metric-pill">
+        <span class="label">STUDIES:</span>
+        <span id="metric-studies" class="value">601</span>
+      </div>
+      <div class="metric-pill">
+        <span class="label">ACTIVE:</span>
+        <span id="metric-findings" class="value">1,186</span>
+      </div>
+      <div class="metric-pill">
+        <span class="label">FPS:</span>
+        <span id="metric-fps" class="value">60</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left Sidebar: Cohorts & Coordinate Space Toggle -->
+  <aside id="cluster-legend">
+    <div class="panel-section">
+      <h3>COORDINATE PROJECTION</h3>
+      <div class="projection-toggle">
+        <button id="btn-mode-anat" class="mode-btn active">Anatomical (CT mm)</button>
+        <button id="btn-mode-pca" class="mode-btn">Latent (PCA 3D)</button>
+      </div>
+    </div>
+
+    <div class="panel-section" style="margin-top: 14px;">
+      <h3>CLINICAL COHORTS (K=4)</h3>
+      <div class="legend-item" data-cluster="0">
+        <span class="color-dot" style="background: #38bdf8;"></span>
+        <span class="name">Cluster 0: Right Lung</span>
+        <span class="count">593</span>
+      </div>
+      <div class="legend-item" data-cluster="1">
+        <span class="color-dot" style="background: #f43f5e; box-shadow: 0 0 8px #f43f5e;"></span>
+        <span class="name">Cluster 1: High-Volume Masses</span>
+        <span class="count">67</span>
+      </div>
+      <div class="legend-item" data-cluster="2">
+        <span class="color-dot" style="background: #818cf8;"></span>
+        <span class="name">Cluster 2: Left Lung</span>
+        <span class="count">494</span>
+      </div>
+      <div class="legend-item" data-cluster="3">
+        <span class="color-dot" style="background: #fbbf24;"></span>
+        <span class="name">Cluster 3: Couch Shifts</span>
+        <span class="count">32</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Floating Hover Tooltip -->
+  <div id="hover-tooltip" class="tooltip hidden">
+    <div class="tooltip-header">
+      <span id="tt-id" class="tt-id">F-0000</span>
+      <span id="tt-cluster" class="tt-badge">Cluster 0</span>
+    </div>
+    <div class="tooltip-body">
+      <div><span>Diameter:</span> <strong id="tt-diameter">0.0 mm</strong></div>
+      <div><span>Anomaly:</span> <strong id="tt-anomaly">0.000</strong></div>
+    </div>
+  </div>
+
+  <!-- Slide-Out Finding Inspection Drawer (UI State 3) -->
+  <section id="inspection-drawer" class="drawer hidden">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <span class="drawer-pretitle">FINDING INSPECTION</span>
+        <h2 id="dr-finding-id">F-0765</h2>
+      </div>
+      <button id="btn-close-drawer" class="close-btn" title="Close Panel">✕</button>
+    </div>
+
+    <div class="drawer-content">
+      <!-- Status Badge -->
+      <div class="status-card" id="dr-status-card">
+        <div class="status-indicator"></div>
+        <div class="status-text">
+          <span class="status-title" id="dr-status-title">High-Priority Geometric Outlier</span>
+          <span class="status-sub" id="dr-status-sub">Volumetric anomaly exceeds 99th percentile</span>
+        </div>
+      </div>
+
+      <!-- Anomaly Score Engine Gauge -->
+      <div class="drawer-section">
+        <div class="section-label-row">
+          <span>RELATIVE ANOMALY SCORE</span>
+          <span id="dr-anomaly-score" class="score-num">0.892</span>
+        </div>
+        <div class="progress-track">
+          <div id="dr-progress-fill" class="progress-fill" style="width: 89%;"></div>
+        </div>
+<p class="anomaly-caption">
+  Normalized Euclidean distance ‖<strong>z</strong><sub>i</sub> − <strong>μ</strong><sub>c</sub>‖<sub>2</sub> from cluster centroid in standardized 4D space (X, Y, Z, V).
+</p>
+        </p>
+      </div>
+
+      <!-- Clinical & Physical Dimensions Grid -->
+      <div class="drawer-section">
+        <h3>MORPHOMETRIC MEASUREMENTS</h3>
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="label">DIAMETER</span>
+            <span id="dr-diameter" class="value">28.4 mm</span>
+            <span class="threshold-tag" id="dr-threshold-tag">>8mm Fleischner High</span>
+          </div>
+            <div class="meta-item">
+            <span class="label">SPHERICAL VOLUME</span>
+            <span id="dr-volume" class="value">1,389 mm³</span>
+            <span class="sub-label">Derived (V = <sup>π</sup>/<sub>6</sub> · d<sup>3</sup>)</span>
+          </div>
+          <div class="meta-item">
+            <span class="label">ASSIGNED COHORT</span>
+            <span id="dr-cluster-label" class="value">Cluster 0 (Right Lung Typical)</span>
+            <span class="sub-label">Unsupervised K-Means</span>
+          </div>
+          <div class="meta-item">
+            <span class="label">PHYSICAL SCANNER COORDS (X, Y, Z)</span>
+            <span id="dr-coords-xyz" class="value">-77.1, +12.4, -758.1 mm</span>
+            <span class="sub-label">Lateral (X) • Sagittal (Y) • Axial (Z)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Relational Lineage -->
+      <div class="drawer-section">
+        <h3>RELATIONAL PROVENANCE (1:N)</h3>
+        <div class="study-card">
+          <span class="study-label">PARENT CT STUDY (seriesuid)</span>
+          <code id="dr-seriesuid" class="study-uid">1.3.6.1.4.1.14519.5.2.1...</code>
+        </div>
+      </div>
+
+      <!-- CTA to Knowledge Graph (Day 9 Bridge) -->
+      <div class="drawer-actions">
+        <button id="btn-open-graph" class="primary-btn">
+          Explore in Knowledge Graph →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bottom HUD Toolbar -->
+  <div id="viewport-controls">
+    <button id="btn-reset-cam" class="hud-btn">Reset Camera</button>
+    <button id="btn-toggle-hulls" class="hud-btn active">Toggle Pleural Hulls</button>
+    <button id="btn-toggle-glow" class="hud-btn active">Outlier Bloom</button>
+    <span class="hint">Click finding to focus & inspect • Click cluster to zoom</span>
+  </div>
+
+  <!-- Loading State -->
+  <div id="loader" class="loader-overlay">
+    <div class="spinner"></div>
+    <p>Streaming 1,186 spatial findings from PostgreSQL...</p>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
