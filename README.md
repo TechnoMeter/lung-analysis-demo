@@ -1,5 +1,5 @@
 # lung-analysis-demo
-> **Interactive Thoracic CT Discovery Platform** powered by Three.js (3D Spatial Viewport), vis.js (2D Relational Knowledge Graph), FastAPI, and Dockerized PostgreSQL.
+> **Interactive Thoracic Computed Tomography Discovery Platform** powered by Three.js (3D Spatial Viewport), vis.js (2D Relational Knowledge Graph), FastAPI, and Dockerized PostgreSQL.
 
 Obtained `./data/raw/annotations.csv` from the [LUNA16 Kaggle Benchmark](https://www.kaggle.com/datasets/eliasmarcon/luna-16), containing 1,186 radiologist-confirmed pulmonary nodule findings across 601 thoracic CT studies.
 
