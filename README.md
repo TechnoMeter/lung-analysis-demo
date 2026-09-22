@@ -27,13 +27,22 @@ lung-analysis-demo/
 │   │   └── clean_pipeline.py      # Production cleaning & derivation pipeline
 │   ├── models/
 │   │   └── train_baseline.py      # Unsupervised K-means, anomaly scoring & PCA
-│   └── database/
-│       ├── connection.py          # SQLAlchemy 2.0 engine & session factory
-│       ├── models.py              # Normalized 1:N ORM models (Study & Finding)
-│       └── ingest_data.py         # Idempotent bulk ingestion pipeline
+│   ├── database/
+│   │   ├── connection.py          # SQLAlchemy 2.0 engine & session factory
+│   │   ├── models.py              # Normalized 1:N ORM models (Study & Finding)
+│   │   └── ingest_data.py         # Idempotent bulk ingestion pipeline
+│   └── api/
+│       ├── main.py                # FastAPI entry point & CORS configuration
+│       ├── schemas.py             # Pydantic v2 data contracts & serialization
+│       └── routes/
+│           ├── health.py          # /health diagnostic with live DB connectivity ping
+│           ├── findings.py        # Spatial 3D PCA coordinates & range filtering
+│           ├── clusters.py        # Aggregated cohort metrics for KPI cards
+│           └── graph.py           # Relational node-edge serialization for vis.js
 ├── scripts/
 │   ├── verify_pca_variance.py     # Empirical PCA 4D vs 5D variance comparison
-│   └── verify_db_queries.py       # Live PostgreSQL query, join & aggregation audit
+│   ├── verify_db_queries.py       # Live PostgreSQL query, join & aggregation audit
+│   └── test_api_endpoints.py      # Automated HTTP audit across all API endpoints
 ├── models/
 │   ├── scaler.joblib              # Serialized StandardScaler for inference
 │   ├── kmeans.joblib              # Serialized KMeans (k=4) model
@@ -109,8 +118,8 @@ To transition from static CSV files to a transactional data layer supporting rea
 
 $$V = \frac{4}{3}\pi r^3 = \frac{4}{3}\pi \left(\frac{d}{2}\right)^3 = \frac{\pi}{6} d^3 \approx 0.5236 \cdot d^3$$
 
-- **Graphics Justification (Three.js):** Raw data provides only a 1D linear span (`diameter_mm`). Human lungs are 3D spatial volumes, and our visualization engine renders physical 3D spherical meshes in WebGL. Deriving continuous volume gives the graphics engine the physical basis to scale and render true volumetric mass in the thoracic viewport.
-- **Machine Learning Justification:** Fleischner Society clinical guidelines evaluate lesion progression by volumetric doubling time. In Euclidean distance math, diameter scales linearly ($3.25\text{ mm}$ to $32.27\text{ mm}$), while volume scales cubically ($17.97\text{ mm}^3$ to $17,590.28\text{ mm}^3$). This non-linear transformation expands feature variance, allowing K-Means to clearly separate sub-centimeter nodules from massive, atypical lesions.
+- **For Graphics (Three.js):** Raw data provides only a 1D linear span (`diameter_mm`). Human lungs are 3D spatial volumes, and our visualization engine renders physical 3D spherical meshes in WebGL. Deriving continuous volume gives the graphics engine the physical basis to scale and render true volumetric mass in the thoracic viewport.
+- **For Machine Learning:** Fleischner Society clinical guidelines evaluate lesion progression by volumetric doubling time. In Euclidean distance math, diameter scales linearly ($3.25\text{ mm}$ to $32.27\text{ mm}$), while volume scales cubically ($17.97\text{ mm}^3$ to $17,590.28\text{ mm}^3$). This non-linear transformation expands feature variance, allowing K-Means to clearly separate sub-centimeter nodules from massive, atypical lesions.
 
 ### 3. Spatial Resolution & Precision Rounding
 - **Observation:** Raw scanner coordinates include up to 6 decimal places ($10^{-6}\text{ mm} = 1\text{ nanometer}$).
@@ -231,7 +240,48 @@ To transition from static CSV files to a transactional data layer supporting rea
 
 ---
 
-## Interface Design & Wireframes
+## Production Backend API Layer (FastAPI & Pydantic v2)
+
+To bridge the Dockerized PostgreSQL database to the Three.js 3D viewport and vis.js knowledge graph, a high-performance asynchronous REST API was built with **FastAPI** and **Pydantic v2**:
+
+```text
+[PostgreSQL Container (port 5432)]
+                  │
+                  ▼ (SQLAlchemy ORM + Connection Pooling)
+          [FastAPI Backend (port 8000)]
+                  │
+┌─────────────────┼──────────────────────────────┼─────────────────────────────────┐
+▼                 ▼                              ▼                                 ▼
+GET /health      GET /api/v1/findings          GET /api/v1/clusters/summary    GET /api/v1/graph
+(Live DB Ping)   (3D PCA Points + Filters)     (Aggregates for KPI cards)      (Node-Edge JSON for vis.js)
+
+```
+
+### 1. Data Contracts & Serialization (`src/api/schemas.py`)
+- **Pydantic v2 Validation:** All incoming query parameters and outgoing responses are validated with strict type boundaries (`ConfigDict(from_attributes=True)`).
+- **vis.js Graph Schema:** The `/api/v1/graph` endpoint generates node-edge network payloads aliased for vis.js consumption (`from`, `to`, `group`, `value`, `title`), allowing direct client-side visualization of the $1:N$ Study-to-Finding hierarchy.
+- **Three.js Coordinate Streaming:** `/api/v1/findings` provides `pca_x`, `pca_y`, and `pca_z` coordinates alongside physical dimensions (`diameter_mm`, `volume_mm3`) and `anomaly_score`, enabling real-time 3D particle instantiation.
+
+### 2. Core Endpoints
+- **`GET /health`:** Actively executes `SELECT 1` on the PostgreSQL engine, returning live database connectivity status and exact entity counts (601 studies, 1,186 findings). Returns HTTP 503 if the database pool is unreachable.
+- **`GET /api/v1/findings`:** Supports server-side query pushdown via B-Tree indexed parameters (`cluster_id`, `min_anomaly`, `max_anomaly`, `limit`, `offset`), preventing client-side array filtering from blocking the browser's 60 FPS WebGL thread.
+- **`GET /api/v1/clusters/summary`:** Executes real-time SQL aggregations (`COUNT`, `AVG`) grouped by cluster to feed dashboard KPI cards with cohort sizes, spatial centers, and average lesion volumes.
+- **`GET /api/v1/graph`:** Accepts a `seriesuid` (defaulting to the study with the highest finding count) and returns a complete relational topology mapping `Study -> Findings -> Clusters -> Outlier Flags`.
+
+### 3. Middleware & Connection Lifecycle
+- **CORS Middleware:** Configured with `allow_origins=["*"]` to ensure seamless local development and production deployment across decoupled hosting environments (e.g., Vercel frontend talking to Render backend).
+- **Scoped Session Lifecycle:** Database sessions are injected via FastAPI dependencies (`Depends(get_db)`), ensuring dedicated connection checkouts and guaranteed cleanup (`finally: db.close()`) to prevent pool exhaustion under load.
+
+### 4. Automated API Audit Verification (`scripts/test_api_endpoints.py`)
+Running the automated test suite against the live Uvicorn server confirmed all contracts pass with 200 OK:
+- `/health`: DB connected (`total_studies: 601`, `total_findings: 1186`).
+- `/api/v1/clusters/summary`: 4 cohorts verified matching K-Means empirical distribution (Cluster 0: 50.0%, Cluster 1: 5.65%, Cluster 2: 41.65%, Cluster 3: 2.7%).
+- `/api/v1/findings`: Correctly retrieved paginated 3D PCA coordinates (`F-0000`: `[-1.047, -1.406, -0.723]`).
+- `/api/v1/graph`: Serialized 15 nodes and 24 edges for the most lesion-dense study in the dataset.
+
+---
+
+## Interface Design
 
 The 4 core interface states were designed in [Excalidraw](https://excalidraw.com) to establish spatial hierarchy, interaction flows, and camera transitions before frontend development:
 
