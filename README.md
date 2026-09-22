@@ -20,7 +20,7 @@ lung-analysis-demo/
 ├── docs/
 │   └── ui_states.png              # 4-state Excalidraw UI architecture
 ├── notebooks/
-│   └── 1_exploratory_analysis.ipynb # Distribution, spatial EDA, & clustering
+│   └── 1_exploratory_analysis.ipynb # Distribution, spatial Exploratory Data Analysis, & clustering
 ├── src/
 │   ├── data/
 │   │   ├── inspect_data.py        # Automated quality & coordinate audit
