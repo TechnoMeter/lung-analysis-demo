@@ -124,7 +124,7 @@ $$V = \frac{4}{3}\pi r^3 = \frac{4}{3}\pi \left(\frac{d}{2}\right)^3 = \frac{\pi
 
 ---
 
-## Exploratory Data Analysis & Feature Selection (Day 3)
+## Exploratory Data Analysis & Feature Selection
 
 Exploratory analysis was conducted in `notebooks/1_exploratory_analysis.ipynb` to evaluate distributions, anatomical geometry, and feature correlations prior to clustering:
 
