@@ -1,7 +1,7 @@
 # src/api/routes/health.py
 """Diagnostic health route with active database connection verification."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -12,8 +12,17 @@ from src.database.models import Finding, Study
 router = APIRouter(tags=["Diagnostics"])
 
 
-@router.get(
-    "/health", response_model=HealthResponse, summary="System Health Status"
+@router.api_route(
+    "/health",
+    methods=["GET", "HEAD"],
+    response_model=HealthResponse,
+    summary="System Health Status",
+)
+@router.api_route(
+    "/health/",
+    methods=["GET", "HEAD"],
+    response_model=HealthResponse,
+    include_in_schema=False,
 )
 def check_health(db: Session = Depends(get_db)):
   """Pings PostgreSQL to verify live pool connectivity and checks record counts."""
@@ -27,7 +36,7 @@ def check_health(db: Session = Depends(get_db)):
         database="connected",
         total_studies=studies_count,
         total_findings=findings_count,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
     )
   except Exception as e:
     raise HTTPException(
