@@ -473,3 +473,7 @@ The 3D spatial viewport and 2D relational graph operate in a synchronized intera
 - This prototype is built strictly for pattern discovery and visual exploration.
 - The prototype's anomaly scores only reflect mathematical distance from cluster centroids in standardized feature space.
 - It does not provide medical diagnoses, tumor staging, or clinical risk assessments.
+
+## Copyright
+**Copyright (c) 2026 Shriram Govindarajan. All Rights Reserved.**
+This repository is available for review purposes only in connection with job applications. No license is granted to use, copy, distribute, or modify this code.
