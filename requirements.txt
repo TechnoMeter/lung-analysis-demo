@@ -6,7 +6,7 @@ aiofiles>=23.2.1
 
 # Database & ORM
 SQLAlchemy>=2.0.28,<3.0.0
-psycopg2-binary>=2.9.9
+psycopg[binary]
 
 # Data Processing & Machine Learning
 pandas>=2.2.0,<3.0.0
