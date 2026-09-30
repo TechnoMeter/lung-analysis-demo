@@ -28,8 +28,8 @@ export function createAnatomicalHulls() {
 
   // 1. Right Lung Pleural Cavity (Centered around Y = 0)
   const rightLobe = new THREE.Mesh(lobeGeometry, hullMaterial);
-  rightLobe.scale.set(0.95, 1.85, 0.9);
-  rightLobe.position.set(-1.05, 0.05, 0.0);
+  rightLobe.scale.set(0.78, 1.85, 0.9);
+  rightLobe.position.set(-1.20, 0.05, 0.0);
   rightLobe.rotation.z = 0.05;
 
   const rightWire = new THREE.Mesh(lobeGeometry, subtleWireMaterial);
@@ -39,8 +39,8 @@ export function createAnatomicalHulls() {
 
   // 2. Left Lung Pleural Cavity (Centered around Y = 0)
   const leftLobe = new THREE.Mesh(lobeGeometry, hullMaterial);
-  leftLobe.scale.set(0.90, 1.80, 0.85);
-  leftLobe.position.set(1.05, 0.05, 0.0);
+  leftLobe.scale.set(0.75, 1.80, 0.85);
+  leftLobe.position.set(1.20, 0.05, 0.0);
   leftLobe.rotation.z = -0.05;
 
   const leftWire = new THREE.Mesh(lobeGeometry, subtleWireMaterial);
